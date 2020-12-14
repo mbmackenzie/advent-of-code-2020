@@ -1,0 +1,29 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 7: Handy Haversacks
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("../input/07 - Handy Haversacks.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .)
+
+# cleaned_input <- input %>%
+```
+
+### Puzzle 1
+
+
+### Puzzle 2
+

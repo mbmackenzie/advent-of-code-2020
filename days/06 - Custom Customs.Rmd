@@ -1,0 +1,63 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 6: Custom Customs
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("../input/06 - Custom Customs - Input.txt") %>%
+  str_split("\\n\\n") %>%
+  unlist() %>%
+  tibble(input = .)
+
+cleaned_input <- input %>%
+  mutate(group = row_number(),
+         response = map(input, ~ str_split(., pattern = "\\n")[[1]])) %>%
+  unnest(response) %>%
+  group_by(group) %>%
+  mutate(person = row_number()) %>%
+  ungroup() %>%
+  mutate(response = map(response, ~ str_split(., pattern = "")[[1]])) %>%
+  unnest(response) %>%
+  select(group, person, response)
+```
+
+### Puzzle 1
+
+```{r}
+solution1 <- cleaned_input %>%
+  group_by(group) %>%
+  summarise(n_people = max(person),
+            total_answers = n(), 
+            distinct_answers = n_distinct(response), .groups = "drop")
+ 
+sum_distinct_answers <- solution1 %>% pull(distinct_answers) %>% sum() %>% formattable::comma(digits = 0)
+```
+
+The solution is **`r sum_distinct_answers`**.
+
+### Puzzle 2
+
+```{r}
+solution2 <- cleaned_input %>%
+  group_by(group) %>%
+  mutate(n_people = max(person)) %>%
+  group_by(group, n_people, response) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(everyone_answered = n == n_people) %>%
+  group_by(group) %>%
+  summarise(num_answers = sum(everyone_answered), .groups = "drop")
+
+sum_everyone_answered <- solution2 %>% pull(num_answers) %>% sum() %>% formattable::comma(digits = 0)
+```
+
+The solution is **`r sum_everyone_answered`**.
