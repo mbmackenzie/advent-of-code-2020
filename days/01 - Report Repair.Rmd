@@ -1,0 +1,54 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 1: Report Repair
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("../input/01 - Report Repair - Input.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  as.numeric()
+```
+
+### Puzzle 1
+
+Find the two entries that sum to 2020 and then multiply those two numbers together.
+
+```{r}
+get_answer <- . %>%
+  pivot_longer(contains("input"), names_to = "input_num", values_to = "input") %>%
+  select(input, sum, product) %>%
+  distinct(input, sum, product)
+
+solution1 <- crossing(input1 = input, input2 = input) %>%
+  mutate(sum = input1 + input2, 
+         product = input1 * input2) %>%
+  filter(sum == 2020) %>%
+  get_answer()
+```
+
+The two numbers that add to 2020 are **`r paste(solution1 %>% pull(input), collapse = ", ")`**. The solution is therefore **`r formattable::comma(prod(solution1 %>% pull(input)), digits = 0)`**.
+
+### Puzzle 2
+
+What is the product of the three entries that sum to 2020?
+
+```{r}
+solution2 <- crossing(input1 = input, input2 = input, input3 = input) %>%
+  mutate(sum = input1 + input2 + input3, 
+         product = input1 * input2 * input3) %>%
+  filter(sum == 2020) %>%
+  get_answer()
+```
+
+The two numbers that add to 2020 are **`r paste(solution2 %>% pull(input), collapse = ", ")`**. The solution is therefore **`r formattable::comma(prod(solution2 %>% pull(input)), digits = 0)`**

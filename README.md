@@ -1,7 +1,7 @@
-# Advent of Code 2020
+# The (Tidy) Advent of Code 2020
 
 Website: adventofcode.com
 
 ___
 
-I will be attempting each puzzle using R.
+I will be attempting each puzzle using R and the Tidyverse. 
