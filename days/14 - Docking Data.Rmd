@@ -1,0 +1,136 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 14: Docking Data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+
+```{r}
+input <- read_file("../input/14 - Docking Data - Input.txt")
+masks <- str_match_all(input, "mask = ([01X]{36})")[[1]][,2]
+
+
+clean_program <- function(x) {
+  regex_str <- "mem\\[(\\d+)\\] = (\\d+)"
+  res <- str_match_all(x, regex_str)[[1]]
+  
+  tibble(location = res[,2], value = res[,3])
+}
+
+cleaned_input <- input %>%
+  str_split("mask = [01X]{36}") %>%
+  unlist() %>%
+  tibble(input = .) %>%
+  slice(-1) %>%
+  mutate(program_num = row_number(),
+         mask = masks,
+         program = map(input, clean_program)) %>%
+  unnest(program) %>%
+  mutate(execution_order = row_number()) %>%
+  select(execution_order, program_num, mask, location, value) %>%
+  mutate(value = as.integer(value))
+```
+
+### Puzzle 1
+
+```{r}
+dec2bin <- function(x) {
+  intToBits(x) %>%
+    rev() %>% 
+    as.integer() %>%
+    paste(collapse = "") %>%
+    str_pad(width = 36, pad = "0")
+}
+
+bin2dec <- function(x) {
+  x <- as.integer(str_split(x, "")[[1]])
+  x <- x %*% 2^((length(x)-1):0)
+  x[[1]]
+}
+
+mask_value <- function(x, m) {
+  tibble(value = strsplit(x, ""), mask = strsplit(m, "")) %>% 
+    unnest(c(value, mask)) %>%
+    mutate(masked = ifelse(mask == "X", value, mask)) %>%
+    pull(masked) %>%
+    paste0(collapse = "")
+}
+
+masked_values <- cleaned_input %>%
+  mutate(value_bin = map_chr(value, dec2bin),
+         value_bin_masked = map2_chr(value_bin, mask, mask_value),
+         value_masked = map_dbl(value_bin_masked, bin2dec))
+
+left_in_memory <- masked_values %>% 
+  group_by(location) %>%
+  slice_max(execution_order) %>%
+  ungroup() %>%
+  arrange(execution_order, program_num)
+  
+sol1 <- left_in_memory %>% pull(value_masked) %>% sum() %>% formattable::comma(digits = 0)
+```
+
+The solution is **`r sol1`**.
+
+### Puzzle 2
+
+```{r}
+mask_address <- function(x, m) {
+  tibble(value = strsplit(x, ""), mask = strsplit(m, "")) %>% 
+    unnest(c(value, mask)) %>%
+    mutate(masked = case_when(mask == "0" ~ value,
+                              mask == "1" ~ "1",
+                              mask == "X" ~ "X")) %>%
+    pull(masked) %>%
+    paste0(collapse = "")
+}
+
+replace_in_seq <- function(x, replacements) {
+  for (r in replacements) {
+    x <- sub("X", as.character(r), x)
+  }
+  x
+}
+
+get_floating_locations <- function(floating_location) { 
+  n_xs <- str_count(floating_location, "X")
+  
+  replacements <- expand.grid(rep(list(0:1), n_xs)) %>%
+    mutate(replacements = pmap(unname(.), c)) %>% 
+    select(replacements)
+  
+  tibble(floating = floating_location) %>%
+    full_join(replacements, by = character()) %>%
+    mutate(location_bin = map2_chr(floating, replacements, replace_in_seq), 
+           location = map_dbl(location_bin, bin2dec)) %>%
+    pull(location)
+}
+
+locations_masked <- cleaned_input %>%
+  mutate(location_bin = map_chr(location, dec2bin), 
+         floating_location_bin = map2_chr(location_bin, mask, mask_address), 
+         floating_location = map(floating_location_bin, get_floating_locations)) %>%
+  unnest(floating_location) %>% arrange(program_num, floating_location) %>%
+  arrange(program_num, execution_order, floating_location)
+
+left_in_memory <- locations_masked %>% 
+  select(execution_order, program_num, value, floating_location) %>% 
+  mutate(execution_order = row_number()) %>%
+  group_by(floating_location) %>%
+  slice_max(execution_order) %>%
+  ungroup() %>%
+  arrange(execution_order, program_num)
+
+sol2 <- left_in_memory %>% pull(value) %>% sum() %>% formattable::comma(digits = 0)
+``` 
+
+The solution is **`r sol2`**.

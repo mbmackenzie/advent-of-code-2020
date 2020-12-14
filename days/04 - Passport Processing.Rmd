@@ -1,0 +1,109 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 4: Passport Processing
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+Passports required fields:
+
+- byr (Birth Year)
+- iyr (Issue Year)
+- eyr (Expiration Year)
+- hgt (Height)
+- hcl (Hair Color)
+- ecl (Eye Color)
+- pid (Passport ID)
+- cid (Country ID)
+
+
+```{r}
+input <- read_file("../input/04 - Passport Processing - Input.txt") %>%
+  str_split("\\n\\n") %>%
+  unlist() %>%
+  tibble(input = .)
+
+create_passport <- function(x) {
+  regex_str = "(\\w{3}):([\\d\\w\\#]+)"
+  res <- str_match_all(x, regex_str)[[1]]
+
+  tibble(field = res[,2], value = res[,3])
+}
+
+cleaned_input <- input %>%
+  mutate(passport_num = row_number(), 
+         passport = map(input, create_passport)) %>%
+  unnest(passport) %>%
+  select(-input)
+```
+
+### Puzzle 1
+
+In your batch file, how many passports are valid?
+
+```{r}
+solution1 <- cleaned_input %>%
+  group_by(passport_num) %>%
+  summarise(num_field = n(), 
+            has_country_id = "cid" %in% field, .groups = "drop") %>%
+  mutate(is_valid = case_when(num_field == 8 ~ TRUE, 
+                              num_field == 7 & !has_country_id ~ TRUE,
+                              TRUE ~ FALSE))
+
+n_valid1 <- solution1 %>% filter(is_valid) %>% nrow()
+```
+
+There are **`r n_valid1`** valid passports.
+
+### Puzzle 2
+
+- byr (Birth Year) - four digits; at least 1920 and at most 2002.
+- iyr (Issue Year) - four digits; at least 2010 and at most 2020.
+- eyr (Expiration Year) - four digits; at least 2020 and at most 2030.
+- hgt (Height) - a number followed by either cm or in:
+  - If cm, the number must be at least 150 and at most 193.
+  - If in, the number must be at least 59 and at most 76.
+- hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
+- ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
+- pid (Passport ID) - a nine-digit number, including leading zeroes.
+- cid (Country ID) - ignored, missing or not.
+
+
+```{r}
+valid_passports <- cleaned_input %>%
+  semi_join(solution1 %>% filter(is_valid), by = "passport_num")
+
+solution2 <- valid_passports %>%
+  pivot_wider(names_from = field, values_from = value) %>%
+  mutate(valid_byr = nchar(byr) == 4 & as.numeric(byr) >= 1920 & as.numeric(byr) <= 2002,
+         valid_iyr = nchar(iyr) == 4 & as.numeric(iyr) >= 2010 & as.numeric(iyr) <= 2020,
+         valid_eyr = nchar(eyr) == 4 & as.numeric(eyr) >= 2020 & as.numeric(eyr) <= 2030, 
+         valid_hgt = str_detect(hgt, "\\d+(cm|in)") & case_when(
+           str_detect(hgt, "cm") ~ parse_number(hgt) >= 150 & parse_number(hgt) <= 193,
+           str_detect(hgt, "in") ~ parse_number(hgt) >= 59 & parse_number(hgt) <= 76
+         ),
+         valid_hcl = str_detect(hcl, "\\#[a-f0-9]{6}"),
+         valid_ecl = ecl %in% c("amb", "blu", "brn", "gry", "grn", "hzl", "oth"),
+         valid_pid = nchar(pid) == 9 & str_detect(pid, "[0-9]{9}")) %>%
+  select(passport_num, contains("valid_")) %>%
+  pivot_longer(contains("valid_"), names_to = "field", values_to = "valid_value") %>%
+  mutate(field = gsub("valid_", "", field)) %>%
+  right_join(valid_passports, by = c("passport_num", "field")) %>%
+  relocate(value, .before = valid_value) %>%
+  arrange(passport_num, field) %>%
+  filter(field != "cid") %>%
+  group_by(passport_num) %>%
+  summarise(is_valid = all(valid_value, na.rm = TRUE), .groups = "drop")
+
+n_valid2 <- solution2 %>% filter(is_valid) %>% nrow()
+```
+
+There are **`r n_valid2`** valid passports.

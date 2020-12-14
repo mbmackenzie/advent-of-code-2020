@@ -1,6 +1,6 @@
 # The (Tidy) Advent of Code 2020
 
-Website: adventofcode.com
+Website: [adventofcode.com](adventofcode.com)
 
 ___
 

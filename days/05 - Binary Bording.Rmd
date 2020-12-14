@@ -1,0 +1,55 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 5: Binary Bording 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("../input/05 - Binary Bording - Input.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .)
+
+cleaned_input = input %>%
+  filter(input != "") %>%
+  extract(input, c("row_raw", "column_raw"), regex = "([FB]{7})([LR]{3})")
+```
+
+### Puzzle 1
+
+```{r}
+
+solution1 <- cleaned_input %>%
+  mutate(row_bin = gsub("F", "0", gsub("B", "1", row_raw)),
+         column_bin = gsub("L", "0", gsub("R", "1", column_raw))) %>%
+  mutate(row = strtoi(row_bin, base = 2), 
+         column = strtoi(column_bin, base = 2)) %>%
+  mutate(seat = (row * 8) + column)
+  
+max_seat <- solution1 %>% pull(seat) %>% max()
+```
+
+The max seat is **`r max_seat`**.
+
+### Puzzle 2
+
+```{r}
+solution_2 <- solution1 %>%
+  arrange(seat) %>%
+  mutate(gap_back = abs(seat - lag(seat)), 
+         gap_forward = abs(seat - lead(seat))) %>%
+  filter(gap_back > 1 | gap_forward > 1)
+
+outer_seats <- solution_2 %>% pull(seat) %>% paste(collapse = " and ")
+```
+
+My seat must be exactly between **`r outer_seats`**.

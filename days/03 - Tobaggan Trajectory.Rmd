@@ -14,7 +14,7 @@ library(scales)
 ```
 
 ```{r}
-input <- read_file("../input/03 Tobaggan Trajectory - Input.txt") %>%
+input <- read_file("../input/03 - Tobaggan Trajectory - Input.txt") %>%
   str_split("\\n") %>%
   unlist() %>%
   tibble(input = .)
