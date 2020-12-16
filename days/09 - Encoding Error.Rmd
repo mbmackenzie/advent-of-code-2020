@@ -1,0 +1,97 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 9: Encoding Error
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("input/09 - Encoding Error.txt") %>%
+# input <- read_file("input/test2.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(value = as.numeric(.)) %>%
+  mutate(pos = row_number()) %>%
+  select(pos, value)
+```
+
+### Puzzle 1
+
+```{r}
+consider <- 25
+preamble <- 25
+
+positions <- input %>%
+  mutate(in_preamble = pos <= preamble, 
+         back_pos = pos - consider) 
+
+get_vals <- function(start, end) {
+  positions %>% filter(pos < end, pos >= start) %>% pull(value)
+}
+
+check_sum_possible <- function(check, vals) {
+  t <- as_tibble(t(combn(vals, 2)), .name_repair = NULL) %>% 
+    mutate(s = V1 + V2)
+  
+  # message(check, " %in% ", paste(t$s, collapse = ", "))
+  check %in% t$s
+}
+
+first_step_possibilities <- positions %>%
+  filter(!in_preamble) %>%
+  mutate(values = map2(back_pos, pos, get_vals), 
+         is_possible = map2_lgl(value, values, check_sum_possible))
+
+solution1 <- first_step_possibilities %>%
+  filter(!is_possible) %>%
+  slice_min(pos) %>%
+  select(pos, value, is_possible)
+
+invalid_num <- pull(solution1, value)
+```
+
+The first invalid value is **`r formattable::comma(invalid_num, digits = 0)`**.
+### Puzzle 2
+
+```{r}
+prev_values <- positions %>%
+  filter(pos < pull(solution1, pos)) %>%
+  pull(value) %>%
+  rev()
+
+start <- 1
+contiguous_sum <- 0
+while(contiguous_sum != invalid_num) {
+  sublist <- c()
+  contiguous_sum <- 0
+  for (i in start:length(prev_values)) {
+    sublist <- c(sublist, i)
+    contiguous_sum <- contiguous_sum + prev_values[i]
+    
+    if (contiguous_sum >= invalid_num) {
+      message(paste(rev(prev_values[sublist]), collapse = ", "), " -> ", contiguous_sum)
+      break
+    }
+  }
+  
+  start <- start + 1
+  
+  if (start == length(prev_values)) {
+    break
+  }
+}
+
+contiguous_sequence = rev(prev_values[sublist])
+max_value = max(contiguous_sequence)
+min_value = min(contiguous_sequence)
+
+sum(min_value, max_value)
+```

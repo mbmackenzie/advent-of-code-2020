@@ -1,0 +1,47 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 10: Adapter Array
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+
+# input <- read_file("input/10 - Adapter Array.txt") %>%
+input <- read_file("input/test2.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  as.numeric() %>%
+  tibble(output = .)
+```
+
+```{r}
+built_in = max(input$output) + 3
+
+rating_chart <- input %>%
+  mutate(input = map(output, ~ (. - 3):(. - 1))) %>%
+  unnest(input) %>%
+  filter(input >= 0) %>%
+  arrange(output, input)
+
+rating_chart
+  
+``` 
+
+### Puzzle 1
+
+```{r}
+
+```
+
+The first invalid value is **`r formattable::comma(invalid_num, digits = 0)`**.
+### Puzzle 2
+
+```{r}
+
+```

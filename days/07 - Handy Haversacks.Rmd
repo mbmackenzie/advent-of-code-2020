@@ -14,16 +14,169 @@ library(scales)
 ```
 
 ```{r}
-input <- read_file("../input/07 - Handy Haversacks.txt") %>%
+input <- read_file("input/07 - Handy Haversacks.txt") %>%
   str_split("\\n") %>%
   unlist() %>%
   tibble(input = .)
 
-# cleaned_input <- input %>%
+cleaned_input <- input %>%
+  extract(input, c("outer", "inner"), regex = "([\\w\\s]+)bags contain (.*)?\\.", remove = FALSE) %>%
+  mutate(outer = str_trim(outer),
+         inner = map(inner, ~ str_extract_all(., pattern = "[\\d+|no][\\w\\s]+bags?")[[1]])) %>%
+  unnest(inner) %>%
+  mutate(inner = str_trim(str_replace(inner, "bags?", ""))) %>%
+  separate(inner, c("num", "inner"), sep = " ", remove = FALSE, extra = "merge") %>%
+  mutate(num = as.integer(ifelse(num == "no", 0, num)), 
+         inner = na_if(inner, "other")) %>%
+  select(outer_bag = outer, inner_bag = inner, can_contain = num)
 ```
 
 ### Puzzle 1
 
+Using the example, what I hope to accomplish is to turn this into a graph problem. With a directed graph, I can find the paths from each vertex to "shiny gold". Once I have all the paths, the bags that can fit the shiny gold bag will be all the unique vertices that were traversed through.
+
+```{r}
+library(ggraph)
+library(igraph)
+library(widyr)
+```
+
+```{r, include=FALSE}
+
+example_text1 <- paste(
+"light red bags contain 1 bright white bag, 2 muted yellow bags.",
+"dark orange bags contain 3 bright white bags, 4 muted yellow bags.",
+"bright white bags contain 1 shiny gold bag.",
+"muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.",
+"shiny gold bags contain 1 dark olive bag, 2 vibrant plum bags.",
+"dark olive bags contain 3 faded blue bags, 4 dotted black bags.",
+"vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.",
+"faded blue bags contain no other bags.",
+"dotted black bags contain no other bags.",
+sep = "\n")
+
+dex1 <- example_text1 %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .) %>%
+  extract(input, c("outer", "inner"), regex = "([\\w\\s]+)bags contain (.*)?\\.", 
+          remove = FALSE) %>%
+  mutate(outer = str_trim(outer),
+         inner = map(inner, ~ str_extract_all(., pattern = "[\\d+|no][\\w\\s]+bags?")[[1]])) %>%
+  unnest(inner) %>%
+  mutate(inner = str_trim(str_replace(inner, "bags?", ""))) %>%
+  separate(inner, c("num", "inner"), sep = " ", remove = FALSE, extra = "merge") %>%
+  mutate(num = as.integer(ifelse(num == "no", 0, num)), 
+         inner = na_if(inner, "other")) %>%
+  select(outer_bag = outer, inner_bag = inner, can_contain = num)
+
+gex1 <- dex1 %>%
+  filter(!is.na(inner_bag)) %>%
+  graph_from_data_frame()
+
+ggraph(gex1) + 
+  geom_edge_link(aes(
+      start_cap = label_rect(node1.name), 
+      end_cap = label_rect(node2.name)
+    ), arrow = arrow(type = "closed", length = unit(3, 'mm'))
+  ) + 
+  geom_node_text(aes(label = name)) +
+  theme_graph() + 
+  labs(title = "Example Problem 1")
+```
+
+
+Drawing the full problem would be very messy, so I use tidy verbs to obtain the paths.
+
+```{r}
+clean_path <- function(p) {
+  tibble(node = p) %>%
+    mutate(path = row_number(), 
+           node = map(node, ~ names(.))) %>%
+    unnest(node) %>%
+    group_by(path) %>%
+    mutate(step = row_number()) %>%
+    ungroup()
+}
+
+my_bag <- "shiny gold"
+
+g <- cleaned_input %>%
+  select(outer_bag, inner_bag) %>%
+  filter(!is.na(inner_bag)) %>%
+  as.matrix() %>%
+  graph_from_edgelist(directed = TRUE)
+
+solution1 <- tibble(start = names(V(g))) %>%
+  mutate(path = map(start, ~ all_simple_paths(g, ., to = my_bag, mode = "out")),
+         path = map(path, clean_path)) %>%
+  unnest(path)
+  
+n_bags <- solution1 %>% count(start) %>% nrow()
+```
+
+The number of bag colors that can eventually contain at least one shiny gold bag is **`r n_bags`**.
 
 ### Puzzle 2
+
+```{r}
+example_text2 <- paste(
+  "shiny gold bags contain 2 dark red bags",
+  "dark red bags contain 2 dark orange bags, 1 dark green bag",
+  "dark orange bags contain 2 dark yellow bags.",
+  "dark yellow bags contain 2 dark green bags.",
+  "dark green bags contain 2 dark blue bags.",
+  "dark blue bags contain 2 dark violet bags.",
+  "dark violet bags contain no other bags.",
+sep = "\n")
+
+dex2 <- example_text2 %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .) %>%
+  extract(input, c("outer", "inner"), regex = "([\\w\\s]+)bags contain (.*)", 
+          remove = FALSE) %>%
+  mutate(outer = str_trim(outer),
+         inner = map(inner, ~ str_extract_all(., pattern = "[\\d+|no][\\w\\s]+bags?")[[1]])) %>%
+  unnest(inner) %>%
+  mutate(inner = str_trim(str_replace(inner, "bags?", ""))) %>%
+  separate(inner, c("num", "inner"), sep = " ", remove = FALSE, extra = "merge") %>%
+  mutate(num = as.integer(ifelse(num == "no", 0, num)), 
+         inner = na_if(inner, "other")) %>%
+  select(outer_bag = outer, inner_bag = inner, can_contain = num)
+
+gex2 <- dex2 %>%
+  filter(!is.na(inner_bag)) %>%
+  graph_from_data_frame()
+
+ggraph(gex2) + 
+  geom_edge_link(aes(
+      start_cap = label_rect(node1.name), 
+      end_cap = label_rect(node2.name)
+    ), arrow = arrow(type = "closed", length = unit(3, 'mm'))
+  ) + 
+  geom_node_text(aes(label = name)) +
+  theme_graph() + 
+  labs(title = "Example Problem 2")
+```
+
+```{r}
+end_nodes <- dex2 %>% filter(can_contain == 0) %>% pull(outer_bag)
+
+tibble(end = end_nodes) %>%
+  mutate(path = map(end, ~ all_simple_paths(gex2, my_bag, to = ., mode = "out")),
+         path = map(path, clean_path)) %>%
+  unnest(path) %>%
+  mutate(outer_bag = node, inner_bag = lead(outer_bag)) %>%
+  left_join(dex2, by = c("outer_bag", "inner_bag")) %>%
+  group_by(end, path) %>%
+  filter(step != max(step)) %>%
+  mutate(num_bags = cumprod(can_contain)) %>% 
+  ungroup() %>%
+  count(end, step, outer_bag, inner_bag, num_bags)
+  summarise(tot_bags = sum(num_bags), .groups = "drop")
+
+n_bags2 <- solution2 %>% pull(tot_bags) %>% sum()
+n_bags2
+```
 

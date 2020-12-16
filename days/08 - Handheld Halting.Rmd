@@ -1,0 +1,107 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 8: Handheld Halting
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("../input/08 - Handheld Halting.txt") %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .)
+
+cleaned_input <- input %>%
+  filter(input != "") %>%
+  mutate(command_num = row_number(),) %>%
+  separate(input, c("command", "value"), " ", remove = FALSE) %>%
+  mutate(value = parse_number(value)) %>%
+  select(command_num, command, value)
+```
+
+### Puzzle 1
+
+```{r}
+commands <- cleaned_input$command
+values <- cleaned_input$value
+visited <- rep(0, length(commands))
+
+current_pos <- 1
+accumulator <- 0
+while (TRUE) {
+  command <- commands[current_pos]
+  visited[current_pos] <- visited[current_pos] + 1
+  
+  if (any(visited > 1)) {
+    break
+  }
+  
+  if (command == "acc") {
+    accumulator <- accumulator + values[current_pos]
+    current_pos <- current_pos + 1
+  } else if (command == "nop") {
+    current_pos <- current_pos + 1
+  } else if (command == "jmp") {
+    current_pos <- current_pos + values[current_pos]
+  }
+}
+
+accumulator
+```
+
+### Puzzle 2
+
+```{r}
+possible_flip_locations <- cleaned_input %>%
+  mutate(nop_with_0 = command == "nop" & value == 0,
+         is_acc = command == "acc") %>%
+  filter(!nop_with_0, !is_acc) %>%
+  pull(command_num)
+
+final_accumulator <- NA
+for (p in possible_flip_locations) {
+  visited <- rep(0, length(commands))
+  real_p_command <- commands[p]
+  flipped_p_command <- ifelse(real_p_command == "jmp", "nop", "jmp")
+  commands_adj <- commands
+  commands_adj[p] <- flipped_p_command
+  
+  message(sprintf("Flipping at position %d: %s to %s.", p, real_p_command, flipped_p_command))
+  
+  current_pos <- 1
+  accumulator <- 0
+  while (TRUE) {
+    command <- commands_adj[current_pos]
+    visited[current_pos] <- visited[current_pos] + 1
+    
+    if (current_pos == length(commands) + 1) {
+      message("Terminated at end with accumulator = ", accumulator)
+      final_accumulator <- accumulator
+      break
+    }
+    
+    if (any(visited > 1)) {
+      break
+    }
+    
+    if (command == "acc") {
+      accumulator <- accumulator + values[current_pos]
+      current_pos <- current_pos + 1
+    } else if (command == "nop") {
+      current_pos <- current_pos + 1
+    } else if (command == "jmp") {
+      current_pos <- current_pos + values[current_pos]
+    }
+  }
+}
+  
+final_accumulator
+```

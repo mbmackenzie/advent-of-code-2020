@@ -1,0 +1,86 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 15: Rambunctious Recitation
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+starting_sequence <- c(0, 20, 7, 16, 1, 18, 15)
+```
+
+### Puzzle 1
+
+Brute force works here. 
+
+```{r}
+init <- starting_sequence 
+# init <- c(0, 3, 6)
+
+end = 2020
+start = length(init) + 1
+
+spoken <- c(init, rep(NA, end - length(init)))
+
+for (i in start:end) {
+  last_num <- spoken[i - 1]
+  if (last_num %in% spoken[1:(i-2)]) {
+    last_idx = max(which(spoken[1:(i-2)] == last_num))
+    spoken[i] <- i - last_idx - 1
+  } else {
+    spoken[i] <- 0
+  }
+}
+
+solution1 <- formattable::comma(tail(spoken, 1), 0)
+```
+
+The solution is **`r solution1`**.
+
+### Puzzle 2
+
+Not so much here. Need to be slightly more clever. 
+
+```{r}
+init <- starting_sequence 
+# init <- c(0, 3, 6)
+
+end = 30000000
+start = length(init) + 1
+
+spoken = rep(NA, end + 1)
+spoken_prev = rep(NA, end + 1)
+
+for (i in 1:length(init)) {
+  val = init[i] + 1
+  spoken[val] <- i
+}
+
+previous_num <- tail(init, 1) + 1
+for (i in start:end) {
+  last_num <- previous_num
+  prev_idx <- spoken_prev[last_num]
+
+  if (is.na(prev_idx)) {
+    new_value <- 1
+  } else {
+    new_value <- i - prev_idx
+  }
+    
+  spoken_prev[new_value] <- spoken[new_value]
+  spoken[new_value] <- i
+  previous_num <- new_value
+}
+
+solution2 <- formattable::comma(previous_num, 0)
+```
+
+The solution is **`r solution2`**.

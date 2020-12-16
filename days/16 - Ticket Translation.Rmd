@@ -1,0 +1,105 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Day 16: Ticket Translation
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+input <- read_file("input/16 - Ticket Translation.txt") %>%
+# input <- read_file("input/test2.txt") %>%
+  str_split("\\n\\n") %>%
+  unlist()
+
+constraints <- input[1] %>%
+  str_split("\\n") %>%
+  unlist() %>%
+  tibble(input = .) %>%
+  separate(input, c("constraint", "value"), ": ", remove = FALSE) %>%
+  mutate(value = map(value, ~ as.numeric(str_extract_all(., "\\d+")[[1]])), 
+         value = map(value, ~ c(.[1]:.[2], .[3]:.[4]))) %>%
+  select(constraint, value)
+
+process_ticket <- . %>%
+  tibble(input = .) %>%
+  filter(input != "") %>%
+  mutate(ticket = row_number(),
+         value = map(input, ~ as.numeric(str_split(., ",")[[1]]))) %>%
+  unnest(value) %>%
+  group_by(ticket) %>%
+  mutate(field = row_number()) %>%
+  ungroup() %>%
+  select(ticket, field, value)
+  
+my_ticket <- input[2] %>%
+  str_split("\\n") %>% 
+  unlist()
+
+my_ticket <- my_ticket[-1] %>%
+  process_ticket() %>%
+  mutate(ticket = 0)
+
+other_tickets <- input[3] %>%
+  str_split("\\n") %>%
+  unlist()
+  
+other_tickets <- other_tickets[-1] %>%
+  process_ticket()
+```
+
+### Puzzle 1
+
+```{r}
+solution1 <- other_tickets %>%
+  full_join(constraints, by = character()) %>%
+  mutate(is_valid = map2_lgl(value.x, value.y, function(x, y) x %in% y)) %>%
+  group_by(ticket, field) %>%
+  mutate(is_valid_in_a_field = any(is_valid)) %>%
+  ungroup()
+  
+solution1 %>% 
+  filter(!is_valid_in_a_field) %>%
+  distinct(ticket, value = value.x) %>%
+  summarise(sol = sum(value))
+```
+
+The first invalid value is **`r formattable::comma(invalid_num, digits = 0)`**.
+### Puzzle 2
+
+```{r}
+final_fields <- solution1 %>% 
+  filter(is_valid_in_a_field) %>%
+  select(ticket, field, constraint, value = value.x, is_valid) %>%
+  group_by(field, constraint) %>%
+  mutate(all_are_valid = all(is_valid)) %>%
+  ungroup() %>%
+  filter(all_are_valid) %>%
+  distinct(field, constraint) %>%
+  add_count(field) %>%
+  arrange(n) %>% 
+  group_by(constraint) %>%
+  mutate(min_n = min(n), 
+         pos = ifelse(n == min_n, field, NA)) %>%
+  ungroup() %>% 
+  filter(!is.na(pos)) %>%
+  select(field = pos, constraint) %>%
+  arrange(field)
+
+my_ticket_final <- final_fields %>%
+  left_join(my_ticket, by = "field") %>%
+  left_join(constraints, by = "constraint") %>%
+  mutate(is_valid = map2_lgl(value.x, value.y, function(x, y) x %in% y)) %>%
+  select(field, name = constraint, value = value.x, is_valid)
+
+my_ticket_final %>%
+  filter(str_detect(constraint, "departure")) %>%
+  summarise(sol = prod(value.x))
+```
